@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { INITIAL_STUDENTS } from '@/lib/initialData';
 
 // Shared data store structure
 interface AppStorageData {
@@ -25,12 +26,12 @@ declare global {
 }
 
 const defaultEmptyState: AppStorageData = {
-  students: [],
+  students: INITIAL_STUDENTS,
   attendance: [],
   rewards: [],
   fees: [],
   awards: [],
-  version: 1,
+  version: 10,
   lastUpdated: new Date().toISOString(),
 };
 

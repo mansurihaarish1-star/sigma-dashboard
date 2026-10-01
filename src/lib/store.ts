@@ -37,12 +37,12 @@ interface AppStorageData {
 
 // Initial in-memory state
 let memoryData: AppStorageData = {
-  students: [],
-  attendance: [],
-  rewards: [],
-  fees: [],
-  awards: [],
-  version: 1,
+  students: INITIAL_STUDENTS,
+  attendance: INITIAL_ATTENDANCE,
+  rewards: INITIAL_REWARDS,
+  fees: INITIAL_FEE_RECEIPTS,
+  awards: INITIAL_AWARDS,
+  version: 10,
 };
 
 let isSyncing = false;
@@ -68,7 +68,7 @@ if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
 }
 
 // Filter out any dummy sample students that were previously seeded
-const DUMMY_NAMES = new Set(['Aarav Patel', 'Diya Sharma', 'Kabir Mehta']);
+const DUMMY_NAMES = new Set(['Aarav Patel', 'Diya Sharma', 'Kabir Mehta', 'Test Student', 'xyz']);
 
 const cleanAppStorage = (data: AppStorageData): AppStorageData => {
   if (!data || !Array.isArray(data.students)) return { ...data, students: [] };
@@ -93,10 +93,25 @@ const getStoreData = (): AppStorageData => {
         localStorage.removeItem('sigma_education_app_data_fresh_v2');
         localStorage.removeItem('sigma_education_app_data_v3');
       } catch {}
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(memoryData));
-      return memoryData;
+      const initial: AppStorageData = {
+        students: INITIAL_STUDENTS,
+        attendance: INITIAL_ATTENDANCE,
+        rewards: INITIAL_REWARDS,
+        fees: INITIAL_FEE_RECEIPTS,
+        awards: INITIAL_AWARDS,
+        version: 10,
+      };
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(initial));
+      memoryData = initial;
+      return initial;
     }
     const parsed = cleanAppStorage(JSON.parse(raw));
+    if (!parsed.students || parsed.students.length === 0) {
+      parsed.students = INITIAL_STUDENTS;
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(parsed));
+      } catch {}
+    }
     memoryData = parsed;
     return parsed;
   } catch (err) {
@@ -219,8 +234,8 @@ export const DataStore = {
 
         const { merged, localHasNewer } = mergeData(local, serverData);
 
-        const localJson = JSON.stringify(local.students || []);
-        const mergedJson = JSON.stringify(merged.students || []);
+        const localJson = JSON.stringify(local);
+        const mergedJson = JSON.stringify(merged);
 
         if (localJson !== mergedJson) {
           memoryData = merged;
