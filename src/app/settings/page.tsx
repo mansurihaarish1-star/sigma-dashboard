@@ -59,17 +59,17 @@ export default function SettingsPage() {
           </div>
 
           <p className="text-xs text-slate-600 leading-relaxed">
-            Clicking reset will restore all student enrolments, attendance history, 300-point reward records, and fee receipts to initial sample demo state.
+            Clicking reset will clear all student enrolments, attendance history, reward records, and fee receipts to a fresh, clean database.
           </p>
 
           <div className="flex items-center justify-between pt-2">
             {resetSuccess ? (
               <div className="text-xs font-bold text-emerald-600 flex items-center space-x-1">
                 <CheckCircle2 className="w-4 h-4" />
-                <span>Sample data reset successfully!</span>
+                <span>All student data cleared successfully!</span>
               </div>
             ) : (
-              <span className="text-xs text-slate-400">Reverts to 6 students with full September history</span>
+              <span className="text-xs text-slate-400">Clears all students and records to start fresh</span>
             )}
 
             <button
@@ -77,7 +77,7 @@ export default function SettingsPage() {
               className="bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 font-bold text-xs px-4 py-2 rounded-xl flex items-center space-x-1.5 transition-colors"
             >
               <RefreshCw className="w-4 h-4 text-purple-600" />
-              <span>Reset Sample Data</span>
+              <span>Reset Database</span>
             </button>
           </div>
         </section>

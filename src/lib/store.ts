@@ -14,7 +14,7 @@ import {
   INITIAL_AWARDS 
 } from './initialData';
 
-const LOCAL_STORAGE_KEY = 'sigma_education_app_data_v3';
+const LOCAL_STORAGE_KEY = 'sigma_education_app_data_v4';
 const LAST_SYNC_KEY = 'sigma_education_last_sync_timestamp';
 
 interface AppStorageData {
@@ -59,6 +59,19 @@ if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
   }
 }
 
+// Filter out any dummy sample students that were previously seeded
+const DUMMY_NAMES = new Set(['Aarav Patel', 'Diya Sharma', 'Kabir Mehta']);
+
+const cleanAppStorage = (data: AppStorageData): AppStorageData => {
+  if (!data || !Array.isArray(data.students)) return { ...data, students: [] };
+  return {
+    ...data,
+    students: data.students.filter(
+      s => s && s.id && !s.id.startsWith('std-seed') && !s.id.startsWith('std-test') && !DUMMY_NAMES.has(s.name)
+    ),
+  };
+};
+
 // Helper to safely load data
 const getStoreData = (): AppStorageData => {
   if (typeof window === 'undefined') {
@@ -67,10 +80,15 @@ const getStoreData = (): AppStorageData => {
   try {
     const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (!raw) {
+      // Clear legacy storage keys
+      try {
+        localStorage.removeItem('sigma_education_app_data_fresh_v2');
+        localStorage.removeItem('sigma_education_app_data_v3');
+      } catch {}
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(memoryData));
       return memoryData;
     }
-    const parsed = JSON.parse(raw);
+    const parsed = cleanAppStorage(JSON.parse(raw));
     memoryData = parsed;
     return parsed;
   } catch (err) {
@@ -83,10 +101,11 @@ const getStoreData = (): AppStorageData => {
 const pushToServer = async (data: AppStorageData) => {
   if (typeof window === 'undefined') return;
   try {
+    const cleanData = cleanAppStorage(data);
     const res = await fetch('/api/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'FULL_SYNC', data }),
+      body: JSON.stringify({ action: 'FULL_SYNC', data: cleanData }),
     });
     if (res.ok) {
       const result = await res.json();
@@ -105,50 +124,52 @@ const pushToServer = async (data: AppStorageData) => {
 
 // Helper to save data locally and trigger background server sync
 const saveStoreData = (data: AppStorageData) => {
-  data.lastUpdated = new Date().toISOString();
-  data.version = (data.version || 0) + 1;
-  memoryData = data;
+  const cleaned = cleanAppStorage(data);
+  cleaned.lastUpdated = new Date().toISOString();
+  cleaned.version = (cleaned.version || 0) + 1;
+  memoryData = cleaned;
 
   if (typeof window !== 'undefined') {
     try {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(cleaned));
     } catch (err) {
       console.error('Failed to save to local storage:', err);
     }
 
     // Notify active components on this page
-    window.dispatchEvent(new CustomEvent('sigma_store_changed', { detail: data }));
+    window.dispatchEvent(new CustomEvent('sigma_store_changed', { detail: cleaned }));
 
     // Notify other tabs in same browser
     try {
-      broadcastChannel?.postMessage({ type: 'STORE_UPDATED', data });
+      broadcastChannel?.postMessage({ type: 'STORE_UPDATED', data: cleaned });
     } catch {}
 
     // Send update to central server API for multi-user sync
-    pushToServer(data);
+    pushToServer(cleaned);
   }
 };
 
 // Intelligent two-way merge
 const mergeData = (local: AppStorageData, server: AppStorageData): { merged: AppStorageData; localHasNewer: boolean } => {
-  const localStudents = local.students || [];
-  const serverStudents = server.students || [];
+  const localClean = cleanAppStorage(local);
+  const serverClean = cleanAppStorage(server);
+
+  const localStudents = localClean.students || [];
+  const serverStudents = serverClean.students || [];
 
   const studentMap = new Map<string, Student>();
   let localHasNewer = false;
 
-  // 1. Add all server students
+  // 1. Add all server students (only genuine ones)
   serverStudents.forEach((s) => studentMap.set(s.id, s));
 
   // 2. Merge local students (never delete student created locally)
   localStudents.forEach((localStd) => {
     const serverStd = studentMap.get(localStd.id);
     if (!serverStd) {
-      // Local has a student that server doesn't have yet -> KEEP IT!
       studentMap.set(localStd.id, localStd);
       localHasNewer = true;
     } else {
-      // Both have it, compare updatedAt
       const localTime = new Date(localStd.updatedAt || localStd.createdAt || 0).getTime();
       const serverTime = new Date(serverStd.updatedAt || serverStd.createdAt || 0).getTime();
       if (localTime >= serverTime) {
@@ -161,10 +182,10 @@ const mergeData = (local: AppStorageData, server: AppStorageData): { merged: App
 
   const merged: AppStorageData = {
     students: mergedStudents,
-    attendance: server.attendance && server.attendance.length > 0 ? server.attendance : (local.attendance || []),
-    rewards: server.rewards && server.rewards.length > 0 ? server.rewards : (local.rewards || []),
-    fees: server.fees && server.fees.length > 0 ? server.fees : (local.fees || []),
-    awards: server.awards && server.awards.length > 0 ? server.awards : (local.awards || []),
+    attendance: serverClean.attendance && serverClean.attendance.length > 0 ? serverClean.attendance : (localClean.attendance || []),
+    rewards: serverClean.rewards && serverClean.rewards.length > 0 ? serverClean.rewards : (localClean.rewards || []),
+    fees: serverClean.fees && serverClean.fees.length > 0 ? serverClean.fees : (localClean.fees || []),
+    awards: serverClean.awards && serverClean.awards.length > 0 ? serverClean.awards : (localClean.awards || []),
     version: Math.max(local.version || 0, server.version || 0) + (localHasNewer ? 1 : 0),
     lastUpdated: new Date().toISOString(),
   };
@@ -200,7 +221,6 @@ export const DataStore = {
         }
 
         if (localHasNewer) {
-          // Push local additions up to server
           await pushToServer(merged);
         }
       }
@@ -271,6 +291,13 @@ export const DataStore = {
     const initialLen = data.students.length;
     data.students = data.students.filter(s => s.id !== id);
     saveStoreData(data);
+    if (typeof window !== 'undefined') {
+      fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'DELETE_STUDENT', id }),
+      }).catch(console.warn);
+    }
     return data.students.length < initialLen;
   },
 
@@ -350,7 +377,6 @@ export const DataStore = {
   calculateStudentScoreForMonth: (student: Student, month: string): StudentScoreSummary => {
     const data = getStoreData();
     
-    // Attendance records for student in this month (YYYY-MM)
     const monthRecords = data.attendance.filter(
       r => r.studentId === student.id && r.date.startsWith(month)
     );
@@ -534,12 +560,10 @@ export const DataStore = {
 
 // Automatic background sync initialization in browser
 if (typeof window !== 'undefined') {
-  // Sync on startup
   setTimeout(() => {
     DataStore.syncWithServer();
   }, 100);
 
-  // Sync on window focus / tab visibility
   window.addEventListener('focus', () => {
     DataStore.syncWithServer();
   });
@@ -550,7 +574,6 @@ if (typeof window !== 'undefined') {
     }
   });
 
-  // Background polling every 5 seconds to sync any edits made by other users
   setInterval(() => {
     DataStore.syncWithServer();
   }, 5000);
