@@ -1,0 +1,81 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Admin {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  passwordHash String
+  name         String   @default("Admin")
+  createdAt    DateTime @default(now())
+}
+
+model Student {
+  id            String   @id @default(uuid())
+  studentId     String   @unique
+  name          String
+  standard      String
+  batch         String
+  parentName    String
+  parentMobile  String
+  admissionDate String
+  monthlyFee    Float
+  status        String   @default("ACTIVE")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Attendance {
+  id        String   @id @default(uuid())
+  studentId String
+  date      String   // YYYY-MM-DD
+  batch     String
+  status    String   // PRESENT, ABSENT, LEAVE
+  createdAt DateTime @default(now())
+
+  @@unique([studentId, date])
+}
+
+model RewardPoint {
+  id               String   @id @default(uuid())
+  studentId        String
+  month            String   // YYYY-MM
+  attendancePoints Int      @default(0)
+  homeworkPoints   Int      @default(0)
+  otherPoints      Int      @default(0)
+  otherReason      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([studentId, month])
+}
+
+model FeePayment {
+  id            String   @id @default(uuid())
+  receiptNumber String   @unique
+  studentId     String
+  studentName   String
+  standard      String
+  period        String
+  amount        Float
+  paymentDate   String
+  paymentMethod String
+  remarks       String?
+  createdAt     DateTime @default(now())
+}
+
+model MonthlyAward {
+  id           String   @id @default(uuid())
+  month        String   @unique
+  studentId    String
+  studentName  String
+  totalPoints  Int
+  rewardAmount Float    @default(300)
+  confirmed    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+}

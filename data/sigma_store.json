@@ -1,0 +1,50 @@
+{
+  "students": [
+    {
+      "id": "std-seed-1",
+      "studentId": "SIG-001",
+      "name": "Aarav Patel",
+      "standard": "Std 7",
+      "batch": "Morning Batch",
+      "parentName": "Rajesh Patel",
+      "parentMobile": "9876543210",
+      "admissionDate": "2026-06-01",
+      "monthlyFee": 2900,
+      "status": "ACTIVE",
+      "createdAt": "2026-06-01",
+      "updatedAt": "2026-10-01"
+    },
+    {
+      "id": "std-seed-2",
+      "studentId": "SIG-002",
+      "name": "Diya Sharma",
+      "standard": "Std 12",
+      "batch": "Evening Batch",
+      "parentName": "Sunita Sharma",
+      "parentMobile": "9822334455",
+      "admissionDate": "2026-06-05",
+      "monthlyFee": 3000,
+      "status": "ACTIVE",
+      "createdAt": "2026-06-05",
+      "updatedAt": "2026-06-05"
+    },
+    {
+      "id": "std-test-1790838621939",
+      "studentId": "SIG-003",
+      "name": "Kabir Mehta",
+      "standard": "Std 11",
+      "batch": "Evening Batch",
+      "parentName": "Vikram Mehta",
+      "parentMobile": "9811223344",
+      "admissionDate": "2026-10-01",
+      "monthlyFee": 3200,
+      "status": "ACTIVE"
+    }
+  ],
+  "attendance": [],
+  "rewards": [],
+  "fees": [],
+  "awards": [],
+  "version": 3,
+  "lastUpdated": "2026-10-01T07:10:21.995Z"
+}
