@@ -26,12 +26,12 @@ export default function DashboardPage() {
   const [sigmaStar, setSigmaStar] = useState<{ winners: StudentScoreSummary[]; confirmedAward?: MonthlyAward }>({ winners: [] });
   const [recentFees, setRecentFees] = useState<FeeReceipt[]>([]);
   const [top5Students, setTop5Students] = useState<StudentScoreSummary[]>([]);
-  const [currentMonthStr, setCurrentMonthStr] = useState<string>('2026-09');
+  const [currentMonthStr, setCurrentMonthStr] = useState<string>(() => DataStore.getSelectedMonth());
 
   const loadDashboardData = () => {
-    // Current date & month string (e.g. 2026-09)
+    // Current date & selected/current month string
     const today = new Date().toISOString().split('T')[0];
-    const month = today.substring(0, 7);
+    const month = DataStore.getSelectedMonth();
     setCurrentMonthStr(month);
 
     // 1. Total Active Students

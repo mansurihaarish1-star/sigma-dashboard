@@ -28,7 +28,7 @@ function FeeReceiptsContent() {
   // Modal State for Recording Payment
   const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState('');
-  const [period, setPeriod] = useState('September 2026');
+  const [period, setPeriod] = useState(() => new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' }));
   const [amount, setAmount] = useState<number>(2500);
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('UPI');

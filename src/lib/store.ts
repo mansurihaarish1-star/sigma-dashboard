@@ -16,6 +16,14 @@ import {
 
 const LOCAL_STORAGE_KEY = 'sigma_education_app_data_v4';
 const LAST_SYNC_KEY = 'sigma_education_last_sync_timestamp';
+const SELECTED_MONTH_KEY = 'sigma_selected_month';
+
+export const getCurrentMonthString = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
+};
 
 interface AppStorageData {
   students: Student[];
@@ -555,6 +563,28 @@ export const DataStore = {
       }).catch(console.warn);
     }
     return emptyState;
+  },
+
+  // --- SELECTED MONTH PERSISTENCE ---
+  getSelectedMonth: (): string => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(SELECTED_MONTH_KEY);
+        if (saved && /^\d{4}-\d{2}$/.test(saved)) {
+          return saved;
+        }
+      } catch {}
+    }
+    return getCurrentMonthString();
+  },
+
+  setSelectedMonth: (month: string): void => {
+    if (typeof window !== 'undefined' && month) {
+      try {
+        localStorage.setItem(SELECTED_MONTH_KEY, month);
+        window.dispatchEvent(new CustomEvent('sigma_month_changed', { detail: month }));
+      } catch {}
+    }
   }
 };
 

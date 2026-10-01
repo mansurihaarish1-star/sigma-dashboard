@@ -31,7 +31,7 @@ export default function StudentProfilePage() {
   const [attendanceStats, setAttendanceStats] = useState({ total: 0, present: 0, absent: 0, leave: 0, percentage: 0 });
   const [scoreSummary, setScoreSummary] = useState<StudentScoreSummary | null>(null);
   const [feeHistory, setFeeHistory] = useState<FeeReceipt[]>([]);
-  const [currentMonth, setCurrentMonth] = useState('2026-09');
+  const [currentMonth, setCurrentMonth] = useState(() => DataStore.getSelectedMonth());
 
   useEffect(() => {
     if (!id) return;
@@ -41,7 +41,7 @@ export default function StudentProfilePage() {
     }
     setStudent(std);
 
-    const month = new Date().toISOString().substring(0, 7);
+    const month = DataStore.getSelectedMonth();
     setCurrentMonth(month);
 
     // Fetch Attendance Stats

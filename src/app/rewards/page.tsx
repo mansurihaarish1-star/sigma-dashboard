@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 
 export default function RewardPointsPage() {
-  const [selectedMonth, setSelectedMonth] = useState<string>('2026-09');
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => DataStore.getSelectedMonth());
   const [students, setStudents] = useState<Student[]>([]);
   const [summaries, setSummaries] = useState<StudentScoreSummary[]>([]);
 
@@ -29,17 +29,44 @@ export default function RewardPointsPage() {
   const [otherPoints, setOtherPoints] = useState<number>(30);
   const [otherReason, setOtherReason] = useState<string>('');
 
-  const loadData = () => {
+  const loadData = (monthToLoad = selectedMonth) => {
     const active = DataStore.getStudents().filter(s => s.status === 'ACTIVE');
     setStudents(active);
 
-    const scores = DataStore.getMonthlyLeaderboard(selectedMonth);
+    const scores = DataStore.getMonthlyLeaderboard(monthToLoad);
     setSummaries(scores);
   };
 
   useEffect(() => {
-    loadData();
+    const saved = DataStore.getSelectedMonth();
+    if (saved && saved !== selectedMonth) {
+      setSelectedMonth(saved);
+      loadData(saved);
+    } else {
+      loadData(selectedMonth);
+    }
+
+    const handleSync = () => loadData();
+    window.addEventListener('sigma_store_changed', handleSync);
+
+    const handleMonthSync = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      if (customEvent.detail && customEvent.detail !== selectedMonth) {
+        setSelectedMonth(customEvent.detail);
+      }
+    };
+    window.addEventListener('sigma_month_changed', handleMonthSync);
+
+    return () => {
+      window.removeEventListener('sigma_store_changed', handleSync);
+      window.removeEventListener('sigma_month_changed', handleMonthSync);
+    };
   }, [selectedMonth]);
+
+  const handleMonthChange = (month: string) => {
+    setSelectedMonth(month);
+    DataStore.setSelectedMonth(month);
+  };
 
   const openEditModal = (summary: StudentScoreSummary) => {
     setEditingStudent(summary.student);
@@ -94,7 +121,7 @@ export default function RewardPointsPage() {
               <input
                 type="month"
                 value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
+                onChange={(e) => handleMonthChange(e.target.value)}
                 className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500"
               />
             </div>
