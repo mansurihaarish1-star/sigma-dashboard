@@ -14,7 +14,7 @@ import {
   INITIAL_AWARDS 
 } from './initialData';
 
-const LOCAL_STORAGE_KEY = 'sigma_education_app_data_fresh_v2';
+const LOCAL_STORAGE_KEY = 'sigma_education_app_data_v3';
 const LAST_SYNC_KEY = 'sigma_education_last_sync_timestamp';
 
 interface AppStorageData {
@@ -34,7 +34,7 @@ let memoryData: AppStorageData = {
   rewards: [],
   fees: [],
   awards: [],
-  version: 0,
+  version: 1,
 };
 
 let isSyncing = false;
@@ -92,20 +92,21 @@ const pushToServer = async (data: AppStorageData) => {
       const result = await res.json();
       lastSyncTime = new Date();
       if (result.version) {
-        memoryData.version = result.version;
+        memoryData.version = Math.max(memoryData.version || 0, result.version);
       }
       try {
         localStorage.setItem(LAST_SYNC_KEY, lastSyncTime.toISOString());
       } catch {}
     }
   } catch (err) {
-    console.warn('Background sync push to server failed (offline or server starting):', err);
+    console.warn('Background sync push to server failed:', err);
   }
 };
 
 // Helper to save data locally and trigger background server sync
 const saveStoreData = (data: AppStorageData) => {
   data.lastUpdated = new Date().toISOString();
+  data.version = (data.version || 0) + 1;
   memoryData = data;
 
   if (typeof window !== 'undefined') {
@@ -128,6 +129,49 @@ const saveStoreData = (data: AppStorageData) => {
   }
 };
 
+// Intelligent two-way merge
+const mergeData = (local: AppStorageData, server: AppStorageData): { merged: AppStorageData; localHasNewer: boolean } => {
+  const localStudents = local.students || [];
+  const serverStudents = server.students || [];
+
+  const studentMap = new Map<string, Student>();
+  let localHasNewer = false;
+
+  // 1. Add all server students
+  serverStudents.forEach((s) => studentMap.set(s.id, s));
+
+  // 2. Merge local students (never delete student created locally)
+  localStudents.forEach((localStd) => {
+    const serverStd = studentMap.get(localStd.id);
+    if (!serverStd) {
+      // Local has a student that server doesn't have yet -> KEEP IT!
+      studentMap.set(localStd.id, localStd);
+      localHasNewer = true;
+    } else {
+      // Both have it, compare updatedAt
+      const localTime = new Date(localStd.updatedAt || localStd.createdAt || 0).getTime();
+      const serverTime = new Date(serverStd.updatedAt || serverStd.createdAt || 0).getTime();
+      if (localTime >= serverTime) {
+        studentMap.set(localStd.id, localStd);
+      }
+    }
+  });
+
+  const mergedStudents = Array.from(studentMap.values());
+
+  const merged: AppStorageData = {
+    students: mergedStudents,
+    attendance: server.attendance && server.attendance.length > 0 ? server.attendance : (local.attendance || []),
+    rewards: server.rewards && server.rewards.length > 0 ? server.rewards : (local.rewards || []),
+    fees: server.fees && server.fees.length > 0 ? server.fees : (local.fees || []),
+    awards: server.awards && server.awards.length > 0 ? server.awards : (local.awards || []),
+    version: Math.max(local.version || 0, server.version || 0) + (localHasNewer ? 1 : 0),
+    lastUpdated: new Date().toISOString(),
+  };
+
+  return { merged, localHasNewer };
+};
+
 export const DataStore = {
   // --- SERVER SYNC METHODS ---
   syncWithServer: async (): Promise<boolean> => {
@@ -144,20 +188,20 @@ export const DataStore = {
         const serverData: AppStorageData = result.data;
         const local = getStoreData();
 
-        // If server data exists and is different from local, update
-        const serverHasData = (serverData.students && serverData.students.length > 0) || (serverData.attendance && serverData.attendance.length > 0);
-        const localIsEmpty = (!local.students || local.students.length === 0);
+        const { merged, localHasNewer } = mergeData(local, serverData);
 
-        if (serverHasData || localIsEmpty || (serverData.version && serverData.version > (local.version || 0))) {
-          memoryData = serverData;
-          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(serverData));
-          lastSyncTime = new Date();
-          localStorage.setItem(LAST_SYNC_KEY, lastSyncTime.toISOString());
-          window.dispatchEvent(new CustomEvent('sigma_store_changed', { detail: serverData }));
-          return true;
-        } else if (local.students && local.students.length > 0 && !serverHasData) {
-          // Push local data to seed empty server
-          await pushToServer(local);
+        const localJson = JSON.stringify(local.students || []);
+        const mergedJson = JSON.stringify(merged.students || []);
+
+        if (localJson !== mergedJson) {
+          memoryData = merged;
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(merged));
+          window.dispatchEvent(new CustomEvent('sigma_store_changed', { detail: merged }));
+        }
+
+        if (localHasNewer) {
+          // Push local additions up to server
+          await pushToServer(merged);
         }
       }
       lastSyncTime = new Date();
@@ -506,8 +550,8 @@ if (typeof window !== 'undefined') {
     }
   });
 
-  // Background polling every 4 seconds to sync any edits made by other users
+  // Background polling every 5 seconds to sync any edits made by other users
   setInterval(() => {
     DataStore.syncWithServer();
-  }, 4000);
+  }, 5000);
 }

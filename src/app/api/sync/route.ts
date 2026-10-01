@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 
 // Shared data store structure
 interface AppStorageData {
@@ -13,89 +14,77 @@ interface AppStorageData {
   lastUpdated?: string;
 }
 
-const DATA_DIR = path.join(process.cwd(), 'data');
+// On Vercel, the project root is read-only, so write to os.tmpdir()
+const isVercel = !!process.env.VERCEL;
+const DATA_DIR = isVercel ? os.tmpdir() : path.join(process.cwd(), 'data');
 const DATA_FILE = path.join(DATA_DIR, 'sigma_store.json');
 
-// Ensure data folder and file exist
+// Global in-memory cache for warm serverless instances
+declare global {
+  var __sigma_store__: AppStorageData | undefined;
+}
+
+const defaultEmptyState: AppStorageData = {
+  students: [],
+  attendance: [],
+  rewards: [],
+  fees: [],
+  awards: [],
+  version: 1,
+  lastUpdated: new Date().toISOString(),
+};
+
 function getStoredData(): AppStorageData {
-  try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
-    if (!fs.existsSync(DATA_FILE)) {
-      const defaultState: AppStorageData = {
-        students: [
-          {
-            id: 'std-seed-1',
-            studentId: 'SIG-001',
-            name: 'Aarav Patel',
-            standard: 'Std 10',
-            batch: 'Morning Batch',
-            parentName: 'Rajesh Patel',
-            parentMobile: '9876543210',
-            admissionDate: '2026-06-01',
-            monthlyFee: 2500,
-            status: 'ACTIVE',
-            createdAt: '2026-06-01',
-            updatedAt: '2026-06-01'
-          },
-          {
-            id: 'std-seed-2',
-            studentId: 'SIG-002',
-            name: 'Diya Sharma',
-            standard: 'Std 12',
-            batch: 'Evening Batch',
-            parentName: 'Sunita Sharma',
-            parentMobile: '9822334455',
-            admissionDate: '2026-06-05',
-            monthlyFee: 3000,
-            status: 'ACTIVE',
-            createdAt: '2026-06-05',
-            updatedAt: '2026-06-05'
-          }
-        ],
-        attendance: [],
-        rewards: [],
-        fees: [],
-        awards: [],
-        version: 1,
-        lastUpdated: new Date().toISOString(),
-      };
-      fs.writeFileSync(DATA_FILE, JSON.stringify(defaultState, null, 2), 'utf-8');
-      return defaultState;
-    }
-    const raw = fs.readFileSync(DATA_FILE, 'utf-8');
-    return JSON.parse(raw);
-  } catch (err) {
-    console.error('Error reading storage file:', err);
-    return {
-      students: [],
-      attendance: [],
-      rewards: [],
-      fees: [],
-      awards: [],
-      version: 0,
-      lastUpdated: new Date().toISOString(),
-    };
+  if (globalThis.__sigma_store__) {
+    return globalThis.__sigma_store__;
   }
+
+  try {
+    if (fs.existsSync(DATA_FILE)) {
+      const raw = fs.readFileSync(DATA_FILE, 'utf-8');
+      const parsed = JSON.parse(raw);
+      globalThis.__sigma_store__ = parsed;
+      return parsed;
+    }
+  } catch (err) {
+    console.warn('Could not read storage file, initializing empty state:', err);
+  }
+
+  // Fallback to checking process.cwd() data file in local development
+  try {
+    const localFallback = path.join(process.cwd(), 'data', 'sigma_store.json');
+    if (fs.existsSync(localFallback)) {
+      const raw = fs.readFileSync(localFallback, 'utf-8');
+      const parsed = JSON.parse(raw);
+      globalThis.__sigma_store__ = parsed;
+      return parsed;
+    }
+  } catch {}
+
+  globalThis.__sigma_store__ = defaultEmptyState;
+  return defaultEmptyState;
 }
 
 function saveStoredData(data: AppStorageData) {
+  const updatedData: AppStorageData = {
+    ...data,
+    version: (data.version || 0) + 1,
+    lastUpdated: new Date().toISOString(),
+  };
+
+  globalThis.__sigma_store__ = updatedData;
+
   try {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
-    const updatedData = {
-      ...data,
-      version: (data.version || 0) + 1,
-      lastUpdated: new Date().toISOString(),
-    };
     fs.writeFileSync(DATA_FILE, JSON.stringify(updatedData, null, 2), 'utf-8');
-    return updatedData;
   } catch (err) {
-    console.error('Error writing storage file:', err);
-    throw err;
+    // On read-only systems, in-memory globalThis still preserves the state
+    console.warn('Could not persist to disk (using in-memory cache):', err);
   }
+
+  return updatedData;
 }
 
 export async function GET() {
@@ -120,13 +109,29 @@ export async function POST(req: Request) {
     let nextData: AppStorageData;
 
     if (body.action === 'FULL_SYNC' && body.data) {
-      // Direct full sync payload
+      // Merge students by ID rather than blindly replacing
+      const existingStudents = current.students || [];
+      const incomingStudents = body.data.students || [];
+      
+      const studentMap = new Map<string, any>();
+      existingStudents.forEach((s: any) => studentMap.set(s.id, s));
+      incomingStudents.forEach((s: any) => {
+        const exist = studentMap.get(s.id);
+        if (!exist) {
+          studentMap.set(s.id, s);
+        } else {
+          // If incoming student has newer or valid details, update
+          studentMap.set(s.id, { ...exist, ...s });
+        }
+      });
+
       nextData = {
-        students: body.data.students ?? current.students,
+        students: Array.from(studentMap.values()),
         attendance: body.data.attendance ?? current.attendance,
         rewards: body.data.rewards ?? current.rewards,
         fees: body.data.fees ?? current.fees,
         awards: body.data.awards ?? current.awards,
+        version: Math.max(current.version || 0, body.data.version || 0),
       };
     } else if (body.action === 'UPDATE_STUDENT' && body.student) {
       const student = body.student;
@@ -170,7 +175,6 @@ export async function POST(req: Request) {
         awards: [],
       };
     } else if (body.data) {
-      // Default to merging provided data
       nextData = {
         students: body.data.students || current.students,
         attendance: body.data.attendance || current.attendance,
