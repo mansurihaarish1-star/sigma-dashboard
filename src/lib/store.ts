@@ -68,7 +68,7 @@ if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
 }
 
 // Filter out any dummy sample students that were previously seeded
-const DUMMY_NAMES = new Set(['Aarav Patel', 'Diya Sharma', 'Kabir Mehta', 'Test Student', 'xyz']);
+const DUMMY_NAMES = new Set(['Aarav Patel', 'Diya Sharma', 'Kabir Mehta', 'Test Student']);
 
 const cleanAppStorage = (data: AppStorageData): AppStorageData => {
   if (!data || !Array.isArray(data.students)) return { ...data, students: [] };
@@ -383,8 +383,11 @@ export const DataStore = {
     const idx = data.rewards.findIndex(
       r => r.studentId === record.studentId && r.month === record.month
     );
+    const disc = record.disciplinePoints !== undefined ? record.disciplinePoints : (record.otherPoints ?? 0);
     const updatedRecord: RewardRecord = {
       ...record,
+      otherPoints: disc,
+      disciplinePoints: disc,
       id: idx !== -1 ? data.rewards[idx].id : `rew-${Date.now()}`
     };
 
@@ -414,23 +417,29 @@ export const DataStore = {
     const classesPresent = monthRecords.filter(r => r.status === 'PRESENT').length;
     const classesAbsent = monthRecords.filter(r => r.status === 'ABSENT').length;
     const classesLeave = monthRecords.filter(r => r.status === 'LEAVE').length;
+    
+    // Attendance percentage is kept strictly for informational display
     const attendancePercentage = totalClassesConducted > 0 
       ? Math.round((classesPresent / totalClassesConducted) * 100) 
       : 0;
 
-    let attendancePoints = 0;
-    if (totalClassesConducted > 0) {
-      attendancePoints = Math.min(150, Math.round((classesPresent / totalClassesConducted) * 150));
-    } else if (classesPresent > 0) {
-      attendancePoints = Math.min(150, classesPresent * 6);
-    }
+    // RULE: Attendance Points = Classes Attended (Present) × 5
+    // 1 attended class = 5 pts, 30 attended classes = 150 pts (Max 150)
+    // Absent: +0 pts, Leave: +0 pts (no deduction)
+    // Not calculated using percentage or proportional formulas
+    const attendancePoints = Math.min(150, Math.max(0, classesPresent * 5));
 
     const rewardRec = data.rewards.find(r => r.studentId === student.id && r.month === month);
     const homeworkPoints = rewardRec ? Math.min(100, Math.max(0, rewardRec.homeworkPoints)) : 0;
-    const otherPoints = rewardRec ? Math.min(50, Math.max(0, rewardRec.otherPoints)) : 0;
+    const rawDisc = rewardRec?.disciplinePoints !== undefined 
+      ? rewardRec.disciplinePoints 
+      : (rewardRec?.otherPoints ?? 0);
+    const disciplinePoints = Math.min(50, Math.max(0, rawDisc));
+    const otherPoints = disciplinePoints;
     const otherReason = rewardRec?.otherReason || '';
 
-    const totalPoints = Math.min(300, attendancePoints + homeworkPoints + otherPoints);
+    // Total Reward Points = Attendance Points + Homework Points + Discipline Points (Max 300)
+    const totalPoints = Math.min(300, attendancePoints + homeworkPoints + disciplinePoints);
 
     return {
       student,
@@ -443,6 +452,7 @@ export const DataStore = {
       attendancePoints,
       homeworkPoints,
       otherPoints,
+      disciplinePoints,
       otherReason,
       totalPoints
     };
@@ -458,7 +468,7 @@ export const DataStore = {
       if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
       if (b.attendancePoints !== a.attendancePoints) return b.attendancePoints - a.attendancePoints;
       if (b.homeworkPoints !== a.homeworkPoints) return b.homeworkPoints - a.homeworkPoints;
-      if (b.otherPoints !== a.otherPoints) return b.otherPoints - a.otherPoints;
+      if (b.disciplinePoints !== a.disciplinePoints) return b.disciplinePoints - a.disciplinePoints;
       return a.student.name.localeCompare(b.student.name);
     });
 
@@ -470,7 +480,7 @@ export const DataStore = {
           prev.totalPoints === item.totalPoints &&
           prev.attendancePoints === item.attendancePoints &&
           prev.homeworkPoints === item.homeworkPoints &&
-          prev.otherPoints === item.otherPoints;
+          prev.disciplinePoints === item.disciplinePoints;
         
         if (!isExactTie) {
           currentRank = index + 1;
@@ -491,7 +501,7 @@ export const DataStore = {
       s.totalPoints === topScore &&
       s.attendancePoints === leaderboard[0].attendancePoints &&
       s.homeworkPoints === leaderboard[0].homeworkPoints &&
-      s.otherPoints === leaderboard[0].otherPoints
+      s.disciplinePoints === leaderboard[0].disciplinePoints
     );
 
     const data = getStoreData();
@@ -511,7 +521,8 @@ export const DataStore = {
       totalPoints: winner.totalPoints,
       attendancePoints: winner.attendancePoints,
       homeworkPoints: winner.homeworkPoints,
-      otherPoints: winner.otherPoints,
+      otherPoints: winner.disciplinePoints,
+      disciplinePoints: winner.disciplinePoints,
       rewardAmount: 300,
       confirmed: true
     };

@@ -197,7 +197,9 @@ export default function StudentProfilePage() {
               <div className="text-xl font-extrabold text-purple-900">
                 {scoreSummary?.attendancePoints || 0} <span className="text-xs text-purple-500 font-normal">/ 150</span>
               </div>
-              <p className="text-[10px] text-purple-600 mt-1">Auto-calculated from present classes</p>
+              <p className="text-[10px] text-purple-600 mt-1">
+                Classes Attended: <strong>{scoreSummary?.classesPresent || 0}</strong> (&times; 5 pts)
+              </p>
             </div>
 
             <div className="p-4 bg-blue-50/60 rounded-xl border border-blue-100">
@@ -209,12 +211,12 @@ export default function StudentProfilePage() {
             </div>
 
             <div className="p-4 bg-amber-50/60 rounded-xl border border-amber-100">
-              <div className="text-xs text-amber-700 font-bold mb-1">Other / Participation</div>
+              <div className="text-xs text-amber-700 font-bold mb-1">Discipline Points</div>
               <div className="text-xl font-extrabold text-amber-900">
-                {scoreSummary?.otherPoints || 0} <span className="text-xs text-amber-500 font-normal">/ 50</span>
+                {scoreSummary ? (scoreSummary.disciplinePoints !== undefined ? scoreSummary.disciplinePoints : scoreSummary.otherPoints) : 0} <span className="text-xs text-amber-500 font-normal">/ 50</span>
               </div>
               <p className="text-[10px] text-amber-700 mt-1 truncate">
-                {scoreSummary?.otherReason || 'Participation & effort'}
+                {scoreSummary?.otherReason || 'Discipline & classroom conduct'}
               </p>
             </div>
           </div>

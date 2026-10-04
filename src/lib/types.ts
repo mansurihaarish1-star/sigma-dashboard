@@ -46,9 +46,10 @@ export interface RewardRecord {
   id: string;
   studentId: string;
   month: string; // YYYY-MM
-  attendancePoints: number; // Max 150
+  attendancePoints: number; // Max 150 (Classes Attended × 5)
   homeworkPoints: number;   // Max 100
-  otherPoints: number;      // Max 50
+  otherPoints: number;      // Max 50 (Mapped to Discipline for backward compatibility)
+  disciplinePoints?: number;// Max 50 (Discipline)
   otherReason?: string;
 }
 
@@ -76,6 +77,7 @@ export interface MonthlyAward {
   attendancePoints: number;
   homeworkPoints: number;
   otherPoints: number;
+  disciplinePoints?: number;
   rewardAmount: number; // ₹300
   confirmed: boolean;
 }
@@ -88,10 +90,11 @@ export interface StudentScoreSummary {
   classesAbsent: number;
   classesLeave: number;
   attendancePercentage: number;
-  attendancePoints: number; // Max 150 (Present / TotalConducted * 150)
+  attendancePoints: number; // Max 150 (Classes Attended × 5)
   homeworkPoints: number;   // Max 100
-  otherPoints: number;      // Max 50
+  otherPoints: number;      // Max 50 (Discipline)
+  disciplinePoints: number; // Max 50 (Discipline)
   otherReason?: string;
-  totalPoints: number;      // Max 300
+  totalPoints: number;      // Max 300 (attendancePoints + homeworkPoints + disciplinePoints)
   rank?: number;
 }

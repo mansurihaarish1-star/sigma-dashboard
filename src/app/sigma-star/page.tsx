@@ -154,7 +154,7 @@ export default function SigmaStarPage() {
           <HelpCircle className="w-4 h-4 text-purple-700 shrink-0 mt-0.5" />
           <div>
             <span className="font-bold">Transparent Tie-Breaker Rules:</span> In case of tied total points, rank is decided by:
-            1. Higher Attendance points &rarr; 2. Higher Homework points &rarr; 3. Higher Other points &rarr; 4. Joint Sigma Stars award.
+            1. Higher Attendance points &rarr; 2. Higher Homework points &rarr; 3. Higher Discipline points &rarr; 4. Joint Sigma Stars award.
           </div>
         </div>
 
@@ -176,7 +176,7 @@ export default function SigmaStarPage() {
                   <th className="py-3 px-4">Student</th>
                   <th className="py-3 px-4 text-right">Attendance</th>
                   <th className="py-3 px-4 text-right">Homework</th>
-                  <th className="py-3 px-4 text-right">Other</th>
+                  <th className="py-3 px-4 text-right">Discipline</th>
                   <th className="py-3 px-4 text-right font-black text-purple-900">Total</th>
                 </tr>
               </thead>
@@ -215,13 +215,14 @@ export default function SigmaStarPage() {
 
                       {/* Points Breakdown Cells */}
                       <td className="py-3.5 px-4 text-right text-purple-700 font-bold">
-                        {row.attendancePoints}
+                        <div>{row.attendancePoints}</div>
+                        <div className="text-[10px] text-slate-400 font-normal">{row.classesPresent} cls</div>
                       </td>
                       <td className="py-3.5 px-4 text-right text-blue-700 font-bold">
                         {row.homeworkPoints}
                       </td>
                       <td className="py-3.5 px-4 text-right text-amber-700 font-bold">
-                        {row.otherPoints}
+                        {row.disciplinePoints !== undefined ? row.disciplinePoints : row.otherPoints}
                       </td>
 
                       {/* Total Score */}

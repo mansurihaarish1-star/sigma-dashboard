@@ -123,7 +123,7 @@ export default function DashboardPage() {
               </div>
               <div>
                 <div className="text-xs font-bold text-amber-950">Add Reward Points</div>
-                <div className="text-[10px] text-amber-600 font-medium">HW &amp; Participation</div>
+                <div className="text-[10px] text-amber-600 font-medium">HW &amp; Discipline</div>
               </div>
             </Link>
 
@@ -259,7 +259,7 @@ export default function DashboardPage() {
                           {item.totalPoints} / 300
                         </div>
                         <div className="text-[9px] text-slate-400">
-                          Att: {item.attendancePoints} | HW: {item.homeworkPoints}
+                          Att: {item.attendancePoints} ({item.classesPresent} cls) | HW: {item.homeworkPoints} | Disc: {item.disciplinePoints ?? item.otherPoints}
                         </div>
                       </div>
                     </div>
